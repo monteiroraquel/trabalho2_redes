@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<!--
+  =====================================================================
+  Trabalho 2 - Redes de Computadores 2  (Prof. Alessandro Vivas Andrade)
+  Exercício 10 - Cliente de chat WebSocket (página HTML + JavaScript)
+
+  Grupo: Maria Eduarda Fernandes, Quezia Oliveira e Raquel Monteiro
+  =====================================================================
+  Usa a WebSocket API nativa do navegador (não precisa instalar nada).
+  Como usar: com o servidor rodando, abra este arquivo no navegador,
+  informe seu nome e clique em "Entrar".
+-->
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Chat WebSocket</title>
+<style>
+  body { font-family: sans-serif; max-width: 560px; margin: 2rem auto; }
+  #log { border: 1px solid #aaa; height: 320px; overflow-y: auto; padding: .5rem; margin: .5rem 0; }
+  .sistema { color: #777; font-style: italic; }  /* avisos (entrou/saiu) */
+  .minha { color: #0a5; }                         /* mensagens enviadas por mim */
+  input { padding: .4rem; }
+  #msg { width: 60%; }
+</style>
+</head>
+<body>
+<h2>Chat WebSocket</h2>
+
+<!-- Tela de entrada: endereço do servidor e nome de usuário -->
+<div id="login">
+  <input id="url" value="ws://localhost:8765" size="22">
+  <input id="nome" placeholder="Seu nome">
+  <button onclick="conectar()">Entrar</button>
+</div>
+
+<!-- Histórico de mensagens -->
+<div id="log"></div>
+
+<!-- Área de envio (fica escondida até conectar) -->
+<div id="envio" style="display:none">
+  <input id="msg" placeholder="Digite uma mensagem e tecle Enter">
+  <button onclick="enviar()">Enviar</button>
+  <button onclick="sair()">Sair</button>
+</div>
+
+<script>
+  let ws = null;                          // guarda a conexão WebSocket
+  const log = document.getElementById("log");
+
+  // Mostra uma mensagem na tela.
+  // Usamos textContent (e não innerHTML) para que ninguém consiga
+  // injetar HTML ou scripts pelo chat.
+  function mostrar(texto, classe) {
+    const p = document.createElement("div");
+    p.textContent = texto;
+    if (classe) p.className = classe;
+    log.appendChild(p);
+    log.scrollTop = log.scrollHeight;     // rola para a última mensagem
+  }
+
+  // Abre a conexão com o servidor
+  function conectar() {
+    const nome = document.getElementById("nome").value.trim();
+    if (!nome) { alert("Informe um nome de usuário."); return; }
+
+    ws = new WebSocket(document.getElementById("url").value);
+
+    // onopen: conexão estabelecida
+    ws.onopen = () => {
+      ws.send(nome);  // a primeira mensagem enviada é o nome de usuário
+      document.getElementById("login").style.display = "none";
+      document.getElementById("envio").style.display = "block";
+    };
+
+    // onmessage: chegou uma mensagem do servidor
+    ws.onmessage = (e) => mostrar(e.data, e.data.startsWith("***") ? "sistema" : "");
+
+    // onclose: conexão encerrada (por nós, pelo servidor ou por queda)
+    ws.onclose = () => {
+      mostrar("[Conexão encerrada]", "sistema");
+      document.getElementById("login").style.display = "block";
+      document.getElementById("envio").style.display = "none";
+    };
+
+    // onerror: não foi possível conectar (servidor desligado, por exemplo)
+    ws.onerror = () => mostrar("[Erro ao conectar ao servidor]", "sistema");
+  }
+
+  // Envia a mensagem digitada
+  function enviar() {
+    const campo = document.getElementById("msg");
+    const texto = campo.value.trim();
+    if (!texto || !ws || ws.readyState !== WebSocket.OPEN) return;
+    ws.send(texto);
+    // O servidor não devolve a mensagem para quem enviou,
+    // então mostramos aqui mesmo na nossa tela.
+    mostrar("[eu] " + texto, "minha");
+    campo.value = "";
+  }
+
+  // Fecha a conexão (o servidor avisa os outros que saímos)
+  function sair() { if (ws) ws.close(); }
+
+  // Tecla Enter também envia a mensagem
+  document.getElementById("msg").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") enviar();
+  });
+</script>
+</body>
+</html>
